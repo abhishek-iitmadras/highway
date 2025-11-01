@@ -1,5 +1,5 @@
 // Copyright 2024 Google LLC
-// Copyright 2025 Fujitsu India Pvt Ltd. (talk to Ragesh-pending)
+// Copyright 2025 Fujitsu India Pvt Ltd.
 // SPDX-License-Identifier: Apache-2.0
 // SPDX-License-Identifier: BSD-3-Clause
 //
@@ -19,23 +19,23 @@
 #include <stdint.h>
 #include <string.h>
 
-#include <cstdint>
-#include <cmath>    // std::abs
-#include <limits>
-#include <cstdio>
+#include <algorithm>
 #include <chrono>
+#include <cmath>
+#include <cstdint>
+#include <cstdio>
 #include <iostream>
+#include <limits>
 #include <random>
 #include <vector>
-#include <algorithm>
 
 #undef HWY_TARGET_INCLUDE
 #define HWY_TARGET_INCLUDE "hwy/contrib/intdiv/intdiv_test.cc"
 #include "hwy/foreach_target.h"  // IWYU pragma: keep
 
-#include "hwy/highway.h"
 #include "hwy/contrib/intdiv/intdiv-inl.h"   // internal helper (detail::DivideHighBy)
 #include "hwy/contrib/intdiv/intdiv.h"       // public API under test
+#include "hwy/highway.h"
 #include "hwy/tests/test_util-inl.h"
 
 HWY_BEFORE_NAMESPACE();
@@ -43,12 +43,12 @@ namespace hwy {
 namespace HWY_NAMESPACE {
 
 using hwy::HWY_NAMESPACE::ComputeDivisorParams;
+using hwy::HWY_NAMESPACE::DivideArrayByScalar;
+using hwy::HWY_NAMESPACE::DivideByScalar;
+using hwy::HWY_NAMESPACE::FloorDivideArrayByScalar;
+using hwy::HWY_NAMESPACE::FloorDivideByScalar;
 using hwy::HWY_NAMESPACE::IntDiv;
 using hwy::HWY_NAMESPACE::IntDivFloor;
-using hwy::HWY_NAMESPACE::DivideByScalar;
-using hwy::HWY_NAMESPACE::FloorDivideByScalar;
-using hwy::HWY_NAMESPACE::DivideArrayByScalar;
-using hwy::HWY_NAMESPACE::FloorDivideArrayByScalar;
 
 // ============================================================================
 // Utilities (Random, Safe floor reference, pow2 check)  [UTILS]
@@ -94,9 +94,9 @@ class TestIntDivUnsigned {
   template <class D>
   static HWY_NOINLINE void TestDivisor(D d, T divisor) {
     const size_t N = Lanes(d);
-    auto lanes    = AllocateAligned<T>(N);
+    auto lanes = AllocateAligned<T>(N);
     auto expected = AllocateAligned<T>(N);
-    auto actual   = AllocateAligned<T>(N);
+    auto actual = AllocateAligned<T>(N);
     HWY_ASSERT(lanes && expected && actual);
 
     const auto params = ComputeDivisorParams(divisor);
@@ -112,15 +112,23 @@ class TestIntDivUnsigned {
     }
     HWY_ASSERT_EQ(divisor, params.divisor);
 
-    const T tv[] = {
-        T(0), T(1), T(2), T(3),
-        T(divisor - 1), divisor, T(divisor + 1),
-        T(divisor * 2), T(divisor * 3),
-        T(7), T(10), T(100), T(1000), T(12345),
-        T(std::numeric_limits<T>::max() / 2),
-        T(std::numeric_limits<T>::max() - 1),
-        T(std::numeric_limits<T>::max()),
-    };
+    const T tv[] = {T(0),
+                    T(1),
+                    T(2),
+                    T(3),
+                    T(divisor - 1),
+                    divisor,
+                    T(divisor + 1),
+                    T(divisor * 2),
+                    T(divisor * 3),
+                    T(7),
+                    T(10),
+                    T(100),
+                    T(1000),
+                    T(12345),
+                    T(std::numeric_limits<T>::max() / 2),
+                    T(std::numeric_limits<T>::max() - 1),
+                    T(std::numeric_limits<T>::max())};
 
     for (T base : tv) {
       for (size_t i = 0; i < N; ++i) {
@@ -171,7 +179,7 @@ class TestIntDivUnsigned {
 struct TestUnsignedDivideArrayByScalar {
   template <typename T, class D>
   HWY_NOINLINE void operator()(T /*unused*/, D /*d*/) {
-    std::vector<T> array = {T(0), T(1), T(7), T(100), T(1000), T(std::numeric_limits<T>::max()/2)};
+    std::vector<T> array = {T(0), T(1), T(7), T(100), T(1000), T(std::numeric_limits<T>::max() / 2)};
     std::vector<T> expected = array;
     for (size_t i = 0; i < expected.size(); ++i) expected[i] = static_cast<T>(expected[i] / T(7));
     DivideArrayByScalar(array.data(), array.size(), T(7));
@@ -187,24 +195,32 @@ class TestIntDivSigned {
   template <class D>
   static HWY_NOINLINE void TestDivisor(D d, T divisor) {
     const size_t N = Lanes(d);
-    auto lanes    = AllocateAligned<T>(N);
+    auto lanes = AllocateAligned<T>(N);
     auto expected = AllocateAligned<T>(N);
-    auto actual   = AllocateAligned<T>(N);
+    auto actual = AllocateAligned<T>(N);
     HWY_ASSERT(lanes && expected && actual);
 
     const auto params = ComputeDivisorParams(divisor);
 
-    const T tv[] = {
-        T(0), T(1), T(-1), T(2), T(-2),
-        T(divisor), T(-divisor),
-        T(divisor - 1), T(divisor + 1),
-        T(-divisor - 1), T(-divisor + 1),
-        T(100), T(-100), T(1234), T(-1234),
-        T(std::numeric_limits<T>::max() / 2),
-        T(std::numeric_limits<T>::min() / 2),
-        T(std::numeric_limits<T>::max()),
-        T(std::numeric_limits<T>::min() + 1)
-    };
+    const T tv[] = {T(0),
+                    T(1),
+                    T(-1),
+                    T(2),
+                    T(-2),
+                    T(divisor),
+                    T(-divisor),
+                    T(divisor - 1),
+                    T(divisor + 1),
+                    T(-divisor - 1),
+                    T(-divisor + 1),
+                    T(100),
+                    T(-100),
+                    T(1234),
+                    T(-1234),
+                    T(std::numeric_limits<T>::max() / 2),
+                    T(std::numeric_limits<T>::min() / 2),
+                    T(std::numeric_limits<T>::max()),
+                    T(std::numeric_limits<T>::min() + 1)};
 
     for (T base : tv) {
       for (size_t i = 0; i < N; ++i) {
@@ -235,11 +251,11 @@ class TestIntDivSigned {
 
     // Truncation semantics spot checks
     {
-      auto p3  = ComputeDivisorParams(T(3));
+      auto p3 = ComputeDivisorParams(T(3));
       auto pm3 = ComputeDivisorParams(T(-3));
       HWY_ASSERT_EQ(T(-2), GetLane(IntDiv(d, Set(d, T(-7)), p3)));
       HWY_ASSERT_EQ(T(-2), GetLane(IntDiv(d, Set(d, T(7)), pm3)));
-      HWY_ASSERT_EQ(T(2),  GetLane(IntDiv(d, Set(d, T(-7)), pm3)));
+      HWY_ASSERT_EQ(T(2), GetLane(IntDiv(d, Set(d, T(-7)), pm3)));
     }
 
     // Power-of-two divisors (signed)
@@ -270,8 +286,7 @@ class TestIntDivSigned {
         const auto params = ComputeDivisorParams(divisor);
         for (int i = 0; i < 50; ++i) {
           const T dividend = static_cast<T>(i * T(123456789));
-          HWY_ASSERT_EQ(static_cast<T>(dividend / divisor),
-                        GetLane(IntDiv(d, Set(d, dividend), params)));
+          HWY_ASSERT_EQ(static_cast<T>(dividend / divisor), GetLane(IntDiv(d, Set(d, dividend), params)));
         }
       }
     }
@@ -343,7 +358,7 @@ struct TestIntDivEdgeCases {
   HWY_NOINLINE void operator()(T /*unused*/, D d) {
     const size_t N = Lanes(d);
     auto dividend = AllocateAligned<T>(N);
-    auto actual   = AllocateAligned<T>(N);
+    auto actual = AllocateAligned<T>(N);
     HWY_ASSERT(dividend && actual);
 
     // Division by 1 (identity)
@@ -408,7 +423,7 @@ struct TestDivideByScalarConvenience {
     const size_t N = Lanes(d);
     auto dividend = AllocateAligned<T>(N);
     auto expected = AllocateAligned<T>(N);
-    auto actual   = AllocateAligned<T>(N);
+    auto actual = AllocateAligned<T>(N);
     HWY_ASSERT(dividend && expected && actual);
 
     const T divisor = T(7);  // prime
@@ -439,21 +454,31 @@ struct TestDirectedLoopSnippet {
   template <typename T, class D>
   HWY_NOINLINE void operator()(T /*unused*/, D d) {
     hwy::RandomState rng(777);
-    const T divisors[] = {
-        T(1), T(2), T(3), T(7), T(10), T(100),
-        T(std::numeric_limits<T>::max())
-    };
+    const T divisors[] = {T(1), T(2), T(3), T(7), T(10), T(100),
+                          T(std::numeric_limits<T>::max())};
     for (T divisor : divisors) {
       const auto params = ComputeDivisorParams(divisor);
       for (int i = 0; i < 64; ++i) {
         T dividend;
         switch (i) {
-          case 0: dividend = T(0); break;
-          case 1: dividend = T(1); break;
-          case 2: dividend = hwy::IsSigned<T>() ? T(-1) : T(1); break;
-          case 3: dividend = std::numeric_limits<T>::max(); break;
-          case 4: dividend = hwy::IsSigned<T>() ? std::numeric_limits<T>::min() : T(0); break;
-          default: dividend = RandWithin<T>(rng); break;
+          case 0:
+            dividend = T(0);
+            break;
+          case 1:
+            dividend = T(1);
+            break;
+          case 2:
+            dividend = hwy::IsSigned<T>() ? T(-1) : T(1);
+            break;
+          case 3:
+            dividend = std::numeric_limits<T>::max();
+            break;
+          case 4:
+            dividend = hwy::IsSigned<T>() ? std::numeric_limits<T>::min() : T(0);
+            break;
+          default:
+            dividend = RandWithin<T>(rng);
+            break;
         }
         const T got = GetLane(IntDiv(d, Set(d, dividend), params));
         if constexpr (hwy::IsSigned<T>()) {
@@ -480,8 +505,8 @@ struct TestDivideHighBySanity {
     // high=2^63, divisor=2^63 → 0
     {
       const uint64_t high = 1ull << 63;
-      const uint64_t div  = 1ull << 63;
-      const uint64_t out  = DivideHighBy(high, div);
+      const uint64_t div = 1ull << 63;
+      const uint64_t out = DivideHighBy(high, div);
       HWY_ASSERT_EQ(0ull, out);
     }
     // high=1, divisor=2^64-1 → 1
@@ -522,10 +547,10 @@ struct TestOptionalPerf {
 };
 
 // ============================================================================
-// === Added: Port of your second test file blocks (namespaced as Added*) ======
+// === Added: Port of second test file blocks (now with correct template) ====
 // ============================================================================
 
-// Reference floor division (mirrors your FloorDivScalar implementation)
+// Reference floor division (mirrors FloorDivScalar implementation)
 template <typename T, HWY_IF_SIGNED(T)>
 T AddedFloorDivScalar(T a, T b) {
   T q = a / b;  // trunc
@@ -534,20 +559,22 @@ T AddedFloorDivScalar(T a, T b) {
   return q;
 }
 template <typename T, HWY_IF_UNSIGNED(T)>
-T AddedFloorDivScalar(T a, T b) { return a / b; }
+T AddedFloorDivScalar(T a, T b) {
+  return a / b;
+}
 
 // [ADDED_BASIC]
 template <typename T>
 struct AddedBasicDivision {
-  template <class D>
-  HWY_NOINLINE void operator()(T /*unused*/, D d) {
+  template <class T2, class D>
+  HWY_NOINLINE void operator()(T2 /*unused*/, D d) {
     const size_t N = Lanes(d);
     auto dividend = AllocateAligned<T>(N);
     auto expected = AllocateAligned<T>(N);
-    auto actual   = AllocateAligned<T>(N);
+    auto actual = AllocateAligned<T>(N);
     HWY_ASSERT(dividend && expected && actual);
 
-    const T divisors[] = {1,2,3,5,7,10,11,13,16,17,31,32,100,127};
+    const T divisors[] = {1, 2, 3, 5, 7, 10, 11, 13, 16, 17, 31, 32, 100, 127};
     for (T divisor : divisors) {
       const auto params = ComputeDivisorParams(divisor);
       for (size_t base = 0; base < 256; base += 17) {
@@ -557,7 +584,7 @@ struct AddedBasicDivision {
           expected[i] = static_cast<T>(v / divisor);
         }
         const auto vec = Load(d, dividend.get());
-        const auto q   = IntDiv(d, vec, params);
+        const auto q = IntDiv(d, vec, params);
         Store(q, d, actual.get());
         for (size_t i = 0; i < N; ++i) HWY_ASSERT_EQ(expected[i], actual[i]);
       }
@@ -568,30 +595,30 @@ struct AddedBasicDivision {
 // [ADDED_PO2]
 template <typename T>
 struct AddedPowerOf2Division {
-  template <class D>
-  HWY_NOINLINE void operator()(T /*unused*/, D d) {
+  template <class T2, class D>
+  HWY_NOINLINE void operator()(T2 /*unused*/, D d) {
     const size_t N = Lanes(d);
     auto dividend = AllocateAligned<T>(N);
     auto expected = AllocateAligned<T>(N);
-    auto actual   = AllocateAligned<T>(N);
+    auto actual = AllocateAligned<T>(N);
     HWY_ASSERT(dividend && expected && actual);
 
-    for (int shift = 0; shift < static_cast<int>(sizeof(T) * 8 - IsSigned<T>()); ++shift) {
+    for (int shift = 0; shift < static_cast<int>(sizeof(T) * 8 - hwy::IsSigned<T>()); ++shift) {
       const T divisor = static_cast<T>(T(1) << shift);
       if (divisor <= 0) break;
       const auto params = ComputeDivisorParams(divisor);
       HWY_ASSERT(params.is_pow2);
       HWY_ASSERT_EQ(shift, params.pow2_shift);
 
-      const T start = IsSigned<T>() ? static_cast<T>(-100) : T(0);
-      const T end   = static_cast<T>(100);
+      const T start = hwy::IsSigned<T>() ? static_cast<T>(-100) : T(0);
+      const T end = static_cast<T>(100);
       for (T base = start; base < end; base += 7) {
         for (size_t i = 0; i < N; ++i) {
           dividend[i] = static_cast<T>(base + i);
           expected[i] = static_cast<T>(dividend[i] / divisor);
         }
         const auto vec = Load(d, dividend.get());
-        const auto q   = IntDiv(d, vec, params);
+        const auto q = IntDiv(d, vec, params);
         Store(q, d, actual.get());
         for (size_t i = 0; i < N; ++i) HWY_ASSERT_EQ(expected[i], actual[i]);
       }
@@ -602,13 +629,13 @@ struct AddedPowerOf2Division {
 // [ADDED_SIGNED_EDGE]
 template <typename T>
 struct AddedSignedEdgeCases {
-  template <class D>
-  HWY_NOINLINE void operator()(T /*unused*/, D d) {
-    if (!IsSigned<T>()) return;
+  template <class T2, class D>
+  HWY_NOINLINE void operator()(T2 /*unused*/, D d) {
+    if (!hwy::IsSigned<T>()) return;
     const size_t N = Lanes(d);
     auto dividend = AllocateAligned<T>(N);
     auto expected = AllocateAligned<T>(N);
-    auto actual   = AllocateAligned<T>(N);
+    auto actual = AllocateAligned<T>(N);
     HWY_ASSERT(dividend && expected && actual);
 
     const T kMin = std::numeric_limits<T>::min();
@@ -617,7 +644,10 @@ struct AddedSignedEdgeCases {
     // INT_MIN / -1 -> saturates to INT_MIN in our trunc path (scalar ref is UB)
     {
       const auto params = ComputeDivisorParams(T(-1));
-      for (size_t i = 0; i < N; ++i) { dividend[i] = kMin; expected[i] = kMin; }
+      for (size_t i = 0; i < N; ++i) {
+        dividend[i] = kMin;
+        expected[i] = kMin;
+      }
       const auto q = IntDiv(d, Load(d, dividend.get()), params);
       Store(q, d, actual.get());
       for (size_t i = 0; i < N; ++i) HWY_ASSERT_EQ(kMin, actual[i]);
@@ -626,7 +656,7 @@ struct AddedSignedEdgeCases {
     // Division by -1 for various values, with special-case for kMin
     {
       const auto params = ComputeDivisorParams(T(-1));
-      const T vals[] = {kMin, T(kMin+1), T(-100), T(-1), T(0), T(1), T(100), T(kMax-1), kMax};
+      const T vals[] = {kMin, T(kMin + 1), T(-100), T(-1), T(0), T(1), T(100), T(kMax - 1), kMax};
       for (T v : vals) {
         for (size_t i = 0; i < N; ++i) {
           dividend[i] = v;
@@ -640,7 +670,7 @@ struct AddedSignedEdgeCases {
 
     // Negative power-of-2 divisors
     for (int shift = 1; shift < 7 && shift < static_cast<int>(sizeof(T) * 8 - 1); ++shift) {
-      const T divisor = static_cast<T>(- (T(1) << shift));
+      const T divisor = static_cast<T>(-(T(1) << shift));
       const auto params = ComputeDivisorParams(divisor);
       const T vals[] = {T(-64), T(-17), T(-1), T(0), T(1), T(17), T(64)};
       for (T v : vals) {
@@ -659,23 +689,23 @@ struct AddedSignedEdgeCases {
 // [ADDED_FLOOR]
 template <typename T>
 struct AddedFloorDivision {
-  template <class D>
-  HWY_NOINLINE void operator()(T /*unused*/, D d) {
+  template <class T2, class D>
+  HWY_NOINLINE void operator()(T2 /*unused*/, D d) {
     const size_t N = Lanes(d);
     auto dividend = AllocateAligned<T>(N);
     auto expected = AllocateAligned<T>(N);
-    auto actual   = AllocateAligned<T>(N);
+    auto actual = AllocateAligned<T>(N);
     HWY_ASSERT(dividend && expected && actual);
 
     std::vector<T> divisors = {1, 2, 3, 5, 7, 11, 17, 100};
-    if (IsSigned<T>()) {
-      std::vector<T> neg = {T(-1),T(-2),T(-3),T(-5),T(-7),T(-11),T(-17),T(-100)};
+    if (hwy::IsSigned<T>()) {
+      std::vector<T> neg = {T(-1), T(-2), T(-3), T(-5), T(-7), T(-11), T(-17), T(-100)};
       divisors.insert(divisors.end(), neg.begin(), neg.end());
     }
     for (T divisor : divisors) {
       const auto params = ComputeDivisorParams(divisor);
-      const T start = IsSigned<T>() ? static_cast<T>(-50) : T(0);
-      const T end   = static_cast<T>(50);
+      const T start = hwy::IsSigned<T>() ? static_cast<T>(-50) : T(0);
+      const T end = static_cast<T>(50);
       for (T base = start; base < end; base += 3) {
         for (size_t i = 0; i < N; ++i) {
           const T v = static_cast<T>(base + i);
@@ -692,12 +722,13 @@ struct AddedFloorDivision {
 
 // [ADDED_CONVENIENCE]
 struct AddedDivideByScalar {
-  template <typename T, class D>
-  HWY_NOINLINE void operator()(T /*unused*/, D d) {
+  template <typename T2, class D>
+  HWY_NOINLINE void operator()(T2 /*unused*/, D d) {
+    using T = T2;
     const size_t N = Lanes(d);
     auto dividend = AllocateAligned<T>(N);
     auto expected = AllocateAligned<T>(N);
-    auto actual   = AllocateAligned<T>(N);
+    auto actual = AllocateAligned<T>(N);
     HWY_ASSERT(dividend && expected && actual);
 
     const T divisors[] = {1, 3, 7, 16, 31, 100};
@@ -720,7 +751,7 @@ struct AddedArrayDivision {
   template <typename T>
   void RunOne() {
     constexpr size_t kCount = 127;
-    auto array    = AllocateAligned<T>(kCount);
+    auto array = AllocateAligned<T>(kCount);
     auto expected = AllocateAligned<T>(kCount);
     HWY_ASSERT(array && expected);
     const T divisor = 11;
@@ -731,12 +762,13 @@ struct AddedArrayDivision {
     DivideArrayByScalar(array.get(), kCount, divisor);
     for (size_t i = 0; i < kCount; ++i) HWY_ASSERT_EQ(expected[i], array[i]);
   }
-  template <typename T, class D>
-  HWY_NOINLINE void operator()(T /*unused*/, D /*d*/) {
+  template <typename T2, class D>
+  HWY_NOINLINE void operator()(T2 /*unused*/, D /*d*/) {
+    using T = T2;
     RunOne<T>();
-    if (IsSigned<T>()) {
+    if (hwy::IsSigned<T>()) {
       constexpr size_t kCount = 100;
-      auto array    = AllocateAligned<T>(kCount);
+      auto array = AllocateAligned<T>(kCount);
       auto expected = AllocateAligned<T>(kCount);
       HWY_ASSERT(array && expected);
       const T divisor = -7;
@@ -755,16 +787,16 @@ struct AddedArrayDivision {
 // [ADDED_RANDOM]
 template <typename T>
 struct AddedRandomDivision {
-  template <class D>
-  HWY_NOINLINE void operator()(T /*unused*/, D d) {
+  template <class T2, class D>
+  HWY_NOINLINE void operator()(T2 /*unused*/, D d) {
     const size_t N = Lanes(d);
     std::mt19937 rng(12345);
-    std::uniform_int_distribution<int> dividend_dist(IsSigned<T>() ? -1000 : 0, 1000);
-    std::uniform_int_distribution<int> divisor_dist(IsSigned<T>() ? -100 : 1, 100);
+    std::uniform_int_distribution<int> dividend_dist(hwy::IsSigned<T>() ? -1000 : 0, 1000);
+    std::uniform_int_distribution<int> divisor_dist(hwy::IsSigned<T>() ? -100 : 1, 100);
 
     auto dividend = AllocateAligned<T>(N);
     auto expected = AllocateAligned<T>(N);
-    auto actual   = AllocateAligned<T>(N);
+    auto actual = AllocateAligned<T>(N);
     HWY_ASSERT(dividend && expected && actual);
 
     for (size_t iter = 0; iter < 100; ++iter) {
@@ -780,7 +812,7 @@ struct AddedRandomDivision {
       Store(q, d, actual.get());
       for (size_t i = 0; i < N; ++i) HWY_ASSERT_EQ(expected[i], actual[i]);
 
-      if (IsSigned<T>()) {
+      if (hwy::IsSigned<T>()) {
         for (size_t i = 0; i < N; ++i) expected[i] = AddedFloorDivScalar(dividend[i], divisor);
         const auto fq = IntDivFloor(d, Load(d, dividend.get()), params);
         Store(fq, d, actual.get());
@@ -847,28 +879,32 @@ HWY_NOINLINE void TestAllOptionalPerf() {
 
 // ---- Added drivers (from your second file) ----
 HWY_NOINLINE void TestAllAddedBasicDivision() {
-  ForIntegerTypes(ForPartialVectors<AddedBasicDivision<uint8_t>>());
-  ForIntegerTypes(ForPartialVectors<AddedBasicDivision<int8_t>>());
-  ForIntegerTypes(ForPartialVectors<AddedBasicDivision<uint16_t>>());
-  ForIntegerTypes(ForPartialVectors<AddedBasicDivision<int16_t>>());
-  ForIntegerTypes(ForPartialVectors<AddedBasicDivision<uint32_t>>());
-  ForIntegerTypes(ForPartialVectors<AddedBasicDivision<int32_t>>());
+  ForUnsignedTypes(ForPartialVectors<AddedBasicDivision<uint8_t>>());
+  ForUnsignedTypes(ForPartialVectors<AddedBasicDivision<uint16_t>>());
+  ForUnsignedTypes(ForPartialVectors<AddedBasicDivision<uint32_t>>());
 #if HWY_HAVE_INTEGER64
-  ForIntegerTypes(ForPartialVectors<AddedBasicDivision<uint64_t>>());
-  ForIntegerTypes(ForPartialVectors<AddedBasicDivision<int64_t>>());
+  ForUnsignedTypes(ForPartialVectors<AddedBasicDivision<uint64_t>>());
+#endif
+  ForSignedTypes(ForPartialVectors<AddedBasicDivision<int8_t>>());
+  ForSignedTypes(ForPartialVectors<AddedBasicDivision<int16_t>>());
+  ForSignedTypes(ForPartialVectors<AddedBasicDivision<int32_t>>());
+#if HWY_HAVE_INTEGER64
+  ForSignedTypes(ForPartialVectors<AddedBasicDivision<int64_t>>());
 #endif
 }
 
 HWY_NOINLINE void TestAllAddedPowerOf2() {
-  ForIntegerTypes(ForPartialVectors<AddedPowerOf2Division<uint8_t>>());
-  ForIntegerTypes(ForPartialVectors<AddedPowerOf2Division<int8_t>>());
-  ForIntegerTypes(ForPartialVectors<AddedPowerOf2Division<uint16_t>>());
-  ForIntegerTypes(ForPartialVectors<AddedPowerOf2Division<int16_t>>());
-  ForIntegerTypes(ForPartialVectors<AddedPowerOf2Division<uint32_t>>());
-  ForIntegerTypes(ForPartialVectors<AddedPowerOf2Division<int32_t>>());
+  ForUnsignedTypes(ForPartialVectors<AddedPowerOf2Division<uint8_t>>());
+  ForUnsignedTypes(ForPartialVectors<AddedPowerOf2Division<uint16_t>>());
+  ForUnsignedTypes(ForPartialVectors<AddedPowerOf2Division<uint32_t>>());
 #if HWY_HAVE_INTEGER64
-  ForIntegerTypes(ForPartialVectors<AddedPowerOf2Division<uint64_t>>());
-  ForIntegerTypes(ForPartialVectors<AddedPowerOf2Division<int64_t>>());
+  ForUnsignedTypes(ForPartialVectors<AddedPowerOf2Division<uint64_t>>());
+#endif
+  ForSignedTypes(ForPartialVectors<AddedPowerOf2Division<int8_t>>());
+  ForSignedTypes(ForPartialVectors<AddedPowerOf2Division<int16_t>>());
+  ForSignedTypes(ForPartialVectors<AddedPowerOf2Division<int32_t>>());
+#if HWY_HAVE_INTEGER64
+  ForSignedTypes(ForPartialVectors<AddedPowerOf2Division<int64_t>>());
 #endif
 }
 
@@ -882,43 +918,48 @@ HWY_NOINLINE void TestAllAddedSignedEdge() {
 }
 
 HWY_NOINLINE void TestAllAddedFloor() {
-  ForIntegerTypes(ForPartialVectors<AddedFloorDivision<uint8_t>>());
-  ForIntegerTypes(ForPartialVectors<AddedFloorDivision<int8_t>>());
-  ForIntegerTypes(ForPartialVectors<AddedFloorDivision<uint16_t>>());
-  ForIntegerTypes(ForPartialVectors<AddedFloorDivision<int16_t>>());
-  ForIntegerTypes(ForPartialVectors<AddedFloorDivision<uint32_t>>());
-  ForIntegerTypes(ForPartialVectors<AddedFloorDivision<int32_t>>());
+  ForUnsignedTypes(ForPartialVectors<AddedFloorDivision<uint8_t>>());
+  ForUnsignedTypes(ForPartialVectors<AddedFloorDivision<uint16_t>>());
+  ForUnsignedTypes(ForPartialVectors<AddedFloorDivision<uint32_t>>());
 #if HWY_HAVE_INTEGER64
-  ForIntegerTypes(ForPartialVectors<AddedFloorDivision<uint64_t>>());
-  ForIntegerTypes(ForPartialVectors<AddedFloorDivision<int64_t>>());
+  ForUnsignedTypes(ForPartialVectors<AddedFloorDivision<uint64_t>>());
+#endif
+  ForSignedTypes(ForPartialVectors<AddedFloorDivision<int8_t>>());
+  ForSignedTypes(ForPartialVectors<AddedFloorDivision<int16_t>>());
+  ForSignedTypes(ForPartialVectors<AddedFloorDivision<int32_t>>());
+#if HWY_HAVE_INTEGER64
+  ForSignedTypes(ForPartialVectors<AddedFloorDivision<int64_t>>());
 #endif
 }
 
 HWY_NOINLINE void TestAllAddedConvenience() {
-  ForIntegerTypes(ForPartialVectors<AddedDivideByScalar>());
+  ForUnsignedTypes(ForPartialVectors<AddedDivideByScalar>());
+  ForSignedTypes(ForPartialVectors<AddedDivideByScalar>());
 }
 
 HWY_NOINLINE void TestAllAddedArrayOps() {
-  ForIntegerTypes(ForPartialVectors<AddedArrayDivision>());
+  ForUnsignedTypes(ForPartialVectors<AddedArrayDivision>());
+  ForSignedTypes(ForPartialVectors<AddedArrayDivision>());
 }
 
 HWY_NOINLINE void TestAllAddedRandom() {
-  ForIntegerTypes(ForPartialVectors<AddedRandomDivision<uint8_t>>());
-  ForIntegerTypes(ForPartialVectors<AddedRandomDivision<int8_t>>());
-  ForIntegerTypes(ForPartialVectors<AddedRandomDivision<uint16_t>>());
-  ForIntegerTypes(ForPartialVectors<AddedRandomDivision<int16_t>>());
-  ForIntegerTypes(ForPartialVectors<AddedRandomDivision<uint32_t>>());
-  ForIntegerTypes(ForPartialVectors<AddedRandomDivision<int32_t>>());
+  ForUnsignedTypes(ForPartialVectors<AddedRandomDivision<uint8_t>>());
+  ForUnsignedTypes(ForPartialVectors<AddedRandomDivision<uint16_t>>());
+  ForUnsignedTypes(ForPartialVectors<AddedRandomDivision<uint32_t>>());
 #if HWY_HAVE_INTEGER64
-  ForIntegerTypes(ForPartialVectors<AddedRandomDivision<uint64_t>>());
-  ForIntegerTypes(ForPartialVectors<AddedRandomDivision<int64_t>>());
+  ForUnsignedTypes(ForPartialVectors<AddedRandomDivision<uint64_t>>());
+#endif
+  ForSignedTypes(ForPartialVectors<AddedRandomDivision<int8_t>>());
+  ForSignedTypes(ForPartialVectors<AddedRandomDivision<int16_t>>());
+  ForSignedTypes(ForPartialVectors<AddedRandomDivision<int32_t>>());
+#if HWY_HAVE_INTEGER64
+  ForSignedTypes(ForPartialVectors<AddedRandomDivision<int64_t>>());
 #endif
 }
 
 }  // namespace HWY_NAMESPACE
 }  // namespace hwy
 HWY_AFTER_NAMESPACE();
-
 
 #if HWY_ONCE
 namespace hwy {

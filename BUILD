@@ -500,6 +500,35 @@ cc_library(
     local_defines = ["HWY_HEADER_ONLY"],
 )
 
+# hwy/contrib/intdiv : header-only library
+cc_library(
+    name = "intdiv",
+    compatible_with = [],
+    copts = COPTS,
+    hdrs = [
+        "hwy/contrib/intdiv/intdiv.h",
+    ],
+    textual_hdrs = [
+        "hwy/contrib/intdiv/intdiv-inl.h",
+    ],
+    deps = [
+        ":hwy",
+    ],
+)
+
+# # Micro-benchmark (same deps style as examples/benchmark)
+# cc_binary(
+#     name = "intdiv_bench",
+#     srcs = ["hwy/contrib/intdiv/intdiv_bench.cc"],
+#     copts = COPTS,
+#     deps = [
+#         ":hwy",
+#         ":nanobenchmark",
+#         ":timer",
+#     ],
+# )
+
+
 cc_test(
     name = "list_targets",
     size = "small",
@@ -588,6 +617,19 @@ HWY_TEST_DEPS = [
     ]
     for subdir, test, extra_deps in HWY_TESTS
 ]
+
+# Unit test (mirrors HWY test deps/copts so it behaves like the rest)
+cc_test(
+    name = "intdiv_test",
+    size = "medium",
+    timeout = "long",
+    srcs = ["hwy/contrib/intdiv/intdiv_test.cc"],
+    copts = COPTS + HWY_TEST_COPTS,
+    local_defines = ["HWY_IS_TEST"],
+    # Tag so it participates in the existing test_suite(name = "hwy_ops_tests")
+    tags = ["hwy_ops_test"],
+    deps = HWY_TEST_DEPS,
+)
 
 # For manually building the tests we define here (:all does not work in --config=msvc)
 test_suite(
