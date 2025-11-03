@@ -212,41 +212,6 @@ HWY_INLINE unsigned LeadingZeroCount64(uint64_t x) {
 #endif
 }
 
-// Division of 128-bit by 64-bit when lower 64 bits are zero
-// HWY_INLINE uint64_t DivideHighBy(uint64_t high, uint64_t divisor) {
-// #if defined(__SIZEOF_INT128__)
-//   using uint128_t = unsigned __int128;
-//   return static_cast<uint64_t>((static_cast<uint128_t>(high) << 64) / divisor);
-// #elif HWY_COMPILER_MSVC && HWY_ARCH_X86_64 && _MSC_VER >= 1920
-//   uint64_t remainder;
-//   return _udiv128(high, 0, divisor, &remainder);
-// #else
-//   // Simplified Knuth Algorithm D
-//   if (high < divisor) {
-//     unsigned shift = LeadingZeroCount64(divisor);
-//     divisor <<= shift;
-//     high <<= shift;
-    
-//     uint32_t dh = static_cast<uint32_t>(divisor >> 32);
-//     uint32_t dl = static_cast<uint32_t>(divisor);
-    
-//     uint64_t qh = high / dh;
-//     uint64_t rem = high - qh * dh;
-    
-//     while (qh >= (1ULL << 32) || qh * dl > (rem << 32)) {
-//       qh--;
-//       rem += dh;
-//       if (rem >= (1ULL << 32)) break;
-//     }
-    
-//     uint64_t t = (high << 32) - qh * divisor;
-//     uint32_t ql = static_cast<uint32_t>(t / dh);
-    
-//     return (qh << 32) | ql;
-//   }
-//   return 0xFFFFFFFFFFFFFFFFULL;
-// #endif
-// }
 HWY_INLINE uint64_t DivideHighBy(uint64_t high, uint64_t divisor) {
   HWY_DASSERT(divisor != 0);
 
@@ -290,102 +255,6 @@ HWY_INLINE uint64_t DivideHighBy(uint64_t high, uint64_t divisor) {
 #endif
 }
 
-
-// // Safe variable shift with compile-time optimization
-// template <typename D, typename V>
-// HWY_INLINE V ShiftRightVariable(D d, V v, int sh) {
-//   using T = TFromD<D>;
-  
-//   // Early return for non-positive shifts
-//   if (sh <= 0) return v;
-  
-//   // Clamp to maximum shift
-//   if constexpr (sizeof(T) == 8) {
-//     if (sh >= 63) return ShiftRight<63>(v);
-//   } else if constexpr (sizeof(T) == 4) {
-//     if (sh >= 31) return ShiftRight<31>(v);
-//   } else if constexpr (sizeof(T) == 2) {
-//     if (sh >= 15) return ShiftRight<15>(v);
-//   } else {
-//     if (sh >= 7) return ShiftRight<7>(v);
-//   }
-  
-//   // Convert runtime shift to compile-time shift
-//   switch (sh) {
-//     case 1:  return ShiftRight<1>(v);
-//     case 2:  return ShiftRight<2>(v);
-//     case 3:  return ShiftRight<3>(v);
-//     case 4:  return ShiftRight<4>(v);
-//     case 5:  return ShiftRight<5>(v);
-//     case 6:  return ShiftRight<6>(v);
-//     case 7:  return ShiftRight<7>(v);
-//     case 8:  return ShiftRight<8>(v);
-//     case 9:  return ShiftRight<9>(v);
-//     case 10: return ShiftRight<10>(v);
-//     case 11: return ShiftRight<11>(v);
-//     case 12: return ShiftRight<12>(v);
-//     case 13: return ShiftRight<13>(v);
-//     case 14: return ShiftRight<14>(v);
-//     case 15: return ShiftRight<15>(v);
-//     case 16: return ShiftRight<16>(v);
-//     case 17: return ShiftRight<17>(v);
-//     case 18: return ShiftRight<18>(v);
-//     case 19: return ShiftRight<19>(v);
-//     case 20: return ShiftRight<20>(v);
-//     case 21: return ShiftRight<21>(v);
-//     case 22: return ShiftRight<22>(v);
-//     case 23: return ShiftRight<23>(v);
-//     case 24: return ShiftRight<24>(v);
-//     case 25: return ShiftRight<25>(v);
-//     case 26: return ShiftRight<26>(v);
-//     case 27: return ShiftRight<27>(v);
-//     case 28: return ShiftRight<28>(v);
-//     case 29: return ShiftRight<29>(v);
-//     case 30: return ShiftRight<30>(v);
-//     case 31: return ShiftRight<31>(v);
-//   }
-  
-//   // For 64-bit types, handle larger shifts
-//   if constexpr (sizeof(T) == 8) {
-//     switch (sh) {
-//       case 32: return ShiftRight<32>(v);
-//       case 33: return ShiftRight<33>(v);
-//       case 34: return ShiftRight<34>(v);
-//       case 35: return ShiftRight<35>(v);
-//       case 36: return ShiftRight<36>(v);
-//       case 37: return ShiftRight<37>(v);
-//       case 38: return ShiftRight<38>(v);
-//       case 39: return ShiftRight<39>(v);
-//       case 40: return ShiftRight<40>(v);
-//       case 41: return ShiftRight<41>(v);
-//       case 42: return ShiftRight<42>(v);
-//       case 43: return ShiftRight<43>(v);
-//       case 44: return ShiftRight<44>(v);
-//       case 45: return ShiftRight<45>(v);
-//       case 46: return ShiftRight<46>(v);
-//       case 47: return ShiftRight<47>(v);
-//       case 48: return ShiftRight<48>(v);
-//       case 49: return ShiftRight<49>(v);
-//       case 50: return ShiftRight<50>(v);
-//       case 51: return ShiftRight<51>(v);
-//       case 52: return ShiftRight<52>(v);
-//       case 53: return ShiftRight<53>(v);
-//       case 54: return ShiftRight<54>(v);
-//       case 55: return ShiftRight<55>(v);
-//       case 56: return ShiftRight<56>(v);
-//       case 57: return ShiftRight<57>(v);
-//       case 58: return ShiftRight<58>(v);
-//       case 59: return ShiftRight<59>(v);
-//       case 60: return ShiftRight<60>(v);
-//       case 61: return ShiftRight<61>(v);
-//       case 62: return ShiftRight<62>(v);
-//     }
-//   }
-  
-//   // Should be unreachable due to early guards
-//   return v;
-// }
-
 ////////////////////////////////////////////////////////////////////////////////////////////////
 // Uniform scalar logical/arithmetic right shift with target-aware fast paths.
 // - Signed lanes => arithmetic shift (as ShiftRight<imm>).
@@ -398,45 +267,40 @@ HWY_INLINE V ShiftRightUniform(D d, V v, int sh) {
   const int bits = int(sizeof(T) * 8);
   if (sh <= 0) return v;
   if (sh >= bits) sh = bits - 1;
+  (void)d;
 
-  // Fast native per-lane variable shifts (where they are actually good)
 #if HWY_TARGET == HWY_NEON
-  {
-    // NEON uses vshl with negative counts for right shift; Highway handles that via ShiftRight.
-    using ShiftDesc = Rebind<MakeSigned<T>, D>;
-    const auto svec = Set(ShiftDesc(d), sh);
-    return ShiftRight(d, v, svec);
-  }
+  return ShiftRightSame(v, sh);
 #elif HWY_TARGET == HWY_AVX3
-  {
-    // AVX-512: vpsrav{w,d,q} are all native and fast.
-    using ShiftDesc = Rebind<MakeSigned<T>, D>;
-    const auto svec = Set(ShiftDesc(d), sh);
-    return ShiftRight(d, v, svec);
-  }
+  return ShiftRightSame(v, sh);
 #elif HWY_TARGET == HWY_AVX2
-  // AVX2: only 32-bit variable right shifts are truly native/fast (vpsravd/vpsrld).
   if constexpr (sizeof(T) == 4) {
-    using ShiftDesc = Rebind<MakeSigned<T>, D>;
-    const auto svec = Set(ShiftDesc(d), sh);
-    return ShiftRight(d, v, svec);
+    return ShiftRightSame(v, sh);
   }
-  // 8/16 and 64 on AVX2 are emulated/slow -> fall through.
 #endif
 
-  // Portable fallback: decompose scalar shift into immediates. Small & fast.
-  if constexpr (sizeof(T) == 8) {
+  // Portable fallback: decompose using only valid immediates for this T.
+  if constexpr (sizeof(T) * 8 > 32) {  // 64-bit lanes
     if (sh & 32) v = ShiftRight<32>(v);
   }
-  if constexpr (sizeof(T) >= 4) {
+  if constexpr (sizeof(T) * 8 > 16) {  // 32/64-bit lanes
     if (sh & 16) v = ShiftRight<16>(v);
   }
-  if (sh & 8)  v = ShiftRight<8>(v);
-  if (sh & 4)  v = ShiftRight<4>(v);
-  if (sh & 2)  v = ShiftRight<2>(v);
-  if (sh & 1)  v = ShiftRight<1>(v);
+  if constexpr (sizeof(T) * 8 > 8) {   // 16/32/64-bit lanes
+    if (sh & 8)  v = ShiftRight<8>(v);
+  }
+  if constexpr (sizeof(T) * 8 > 4) {   // 8/16/32/64-bit lanes
+    if (sh & 4)  v = ShiftRight<4>(v);
+  }
+  if constexpr (sizeof(T) * 8 > 2) {
+    if (sh & 2)  v = ShiftRight<2>(v);
+  }
+  if constexpr (sizeof(T) * 8 > 1) {
+    if (sh & 1)  v = ShiftRight<1>(v);
+  }
   return v;
 }
+
 
 template <class D, class V = Vec<D>, typename T = TFromD<D>>
 HWY_INLINE V ScalarDivPerLane(D d, V dividend, T divisor) {
@@ -539,7 +403,8 @@ HWY_INLINE DivisorParamsU<T> ComputeDivisorParams(T divisor) {
   uint32_t two_l = 1U << l;
   if (l == 16) two_l = 0;
   
-  uint32_t m = ((static_cast<uint64_t>(two_l - divisor) << 16) / divisor) + 1;
+  const uint64_t tmp = ((static_cast<uint64_t>(two_l - divisor) << 16) / divisor) + 1;
+  const uint32_t m = static_cast<uint32_t>(tmp);
   params.multiplier = m;
   params.shift1 = 1;
   params.shift2 = static_cast<int>(l - 1);
@@ -729,7 +594,8 @@ HWY_INLINE DivisorParamsS<T> ComputeDivisorParams(T divisor) {
   }
   
   unsigned sh = 31 - detail::LeadingZeroCount32(static_cast<uint32_t>(abs_d - 1));
-  uint32_t m = (65536ULL << sh) / abs_d + 1;
+  const uint64_t tmp = ((uint64_t{1} << 16) << sh) / abs_d + 1;
+  const uint32_t m = static_cast<uint32_t>(tmp);
   params.multiplier = static_cast<int32_t>(m);
   params.shift = static_cast<int>(sh);
   
@@ -857,38 +723,77 @@ HWY_INLINE V IntDiv(D d, V dividend, const DivisorParamsU<T>& params) {
   // ========== ARM/Power (and optionally others) 64-bit: scalar fallback ==========
   #if HWY_INTDIV_SCALAR64
     if constexpr (sizeof(T) == 8) {
-      return ScalarDivPerLane(d, dividend, params.divisor);  // truncation semantics
+      return detail::ScalarDivPerLane(d, dividend, params.divisor);  // truncation semantics
     }
   #endif
 
-  // Special handling for 8-bit and 16-bit (need wider multiplier)
-  if constexpr (sizeof(T) == 1) {
-    // 8-bit unsigned: multiplier is 16-bit
-    const Repartition<uint16_t, D> d16;
-    const auto dividend_16 = PromoteTo(d16, dividend);
-    const auto multiplier_16 = Set(d16, params.multiplier);
-    const auto prod = Mul(dividend_16, multiplier_16);
-    const auto t1 = DemoteTo(d, ShiftRight<8>(prod));
-    
-    const V diff = Sub(dividend, t1);
-    const V shifted = detail::ShiftRightUniform(d, diff, params.shift1);
-    const V sum = Add(t1, shifted);
-    return detail::ShiftRightUniform(d, sum, params.shift2);
-    
-  } else if constexpr (sizeof(T) == 2) {
-    // 16-bit unsigned: multiplier is 32-bit
-    const Repartition<uint32_t, D> d32;
-    const auto dividend_32 = PromoteTo(d32, dividend);
-    const auto multiplier_32 = Set(d32, params.multiplier);
-    const auto prod = Mul(dividend_32, multiplier_32);
-    const auto t1 = DemoteTo(d, ShiftRight<16>(prod));
-    
-    const V diff = Sub(dividend, t1);
-    const V shifted = detail::ShiftRightUniform(d, diff, params.shift1);
-    const V sum = Add(t1, shifted);
-    return detail::ShiftRightUniform(d, sum, params.shift2);
-    
-  } else if constexpr (sizeof(T) == 4) {
+// Special handling for 8-bit and 16-bit (need wider multiplier)
+if constexpr (sizeof(T) == 1) {
+  // For 1-lane partial vectors, avoid PromoteUpperTo entirely.
+    if constexpr (D::kPrivateLanes < 2) {
+      return detail::ScalarDivPerLane(d, dividend, params.divisor);
+    } else {
+      // For uint8_t -> uint16_t promotion
+      // Need descriptor with uint16_t type and half the lanes
+      using TWide = MulType_t<T>;  // uint16_t
+      const Repartition<TWide, D> d_wide;  // Same byte size, half the lanes
+      
+      // Promote lower and upper halves directly
+      const auto lo_wide = PromoteLowerTo(d_wide, dividend);
+      const auto hi_wide = PromoteUpperTo(d_wide, dividend);
+      
+      const auto mul_wide = Set(d_wide, static_cast<TWide>(params.multiplier));
+      
+      const auto prod_lo = Mul(lo_wide, mul_wide);
+      const auto prod_hi = Mul(hi_wide, mul_wide);
+      
+      // Extract high bytes (shift right by 8) and demote back
+      #if defined(HWY_HAVE_ORDEREDDEMOTE2TO)
+        const V t1 = OrderedDemote2To(d, ShiftRight<8>(prod_lo), ShiftRight<8>(prod_hi));
+      #else
+        const Half<D> d_half;
+        const auto t1_lo = DemoteTo(d_half, ShiftRight<8>(prod_lo));
+        const auto t1_hi = DemoteTo(d_half, ShiftRight<8>(prod_hi));
+        const V t1 = Combine(d, t1_hi, t1_lo);
+      #endif
+      
+      const V diff = Sub(dividend, t1);
+      const V shifted = detail::ShiftRightUniform(d, diff, params.shift1);
+      const V sum = Add(t1, shifted);
+      return detail::ShiftRightUniform(d, sum, params.shift2);
+    }
+  
+} else if constexpr (sizeof(T) == 2) {
+  if constexpr (D::kPrivateLanes < 2) {
+      return detail::ScalarDivPerLane(d, dividend, params.divisor);
+    } else {
+      // For uint16_t -> uint32_t promotion
+      using TWide = MulType_t<T>;  // uint32_t
+      const Repartition<TWide, D> d_wide;
+      
+      const auto lo_wide = PromoteLowerTo(d_wide, dividend);
+      const auto hi_wide = PromoteUpperTo(d_wide, dividend);
+      
+      const auto mul_wide = Set(d_wide, static_cast<TWide>(params.multiplier));
+      
+      const auto prod_lo = Mul(lo_wide, mul_wide);
+      const auto prod_hi = Mul(hi_wide, mul_wide);
+      
+      #if defined(HWY_HAVE_ORDEREDDEMOTE2TO)
+        const V t1 = OrderedDemote2To(d, ShiftRight<16>(prod_lo), ShiftRight<16>(prod_hi));
+      #else
+        const Half<D> d_half;
+        const auto t1_lo = DemoteTo(d_half, ShiftRight<16>(prod_lo));
+        const auto t1_hi = DemoteTo(d_half, ShiftRight<16>(prod_hi));
+        const V t1 = Combine(d, t1_hi, t1_lo);
+      #endif
+     
+     const V diff = Sub(dividend, t1);
+     const V shifted = detail::ShiftRightUniform(d, diff, params.shift1);
+     const V sum = Add(t1, shifted);
+     return detail::ShiftRightUniform(d, sum, params.shift2);
+    }
+} else if constexpr (sizeof(T) == 4) {
     // 32-bit uses MulHigh
     const V multiplier = Set(d, params.multiplier);
     const V t1 = MulHigh(dividend, multiplier);
@@ -928,9 +833,10 @@ HWY_INLINE V IntDiv(D d, V dividend, const DivisorParamsS<T>& params) {
     using UT = MakeUnsigned<T>;
     
     // Compute (2^k - 1) safely in unsigned domain to avoid UB
-    const T mask_val = (params.pow2_shift < sizeof(T) * 8) 
-        ? static_cast<T>((static_cast<UT>(1) << params.pow2_shift) - 1)
-        : static_cast<T>(-1);  // Handle shift == bitwidth case
+    HWY_DASSERT(params.pow2_shift >= 0 && params.pow2_shift < static_cast<int>(8 * sizeof(T)));
+    // shift count as unsigned avoids UB when T is signed
+    const T mask_val = static_cast<T>((static_cast<UT>(1) << static_cast<unsigned>(params.pow2_shift)) - 1);
+
     const V mask = Set(d, mask_val);
     
     // Get sign mask: all ones if negative, all zeros if positive
@@ -962,30 +868,66 @@ HWY_INLINE V IntDiv(D d, V dividend, const DivisorParamsS<T>& params) {
   // ========== ARM/Power (and optionally others) 64-bit: scalar fallback ==========
   #if HWY_INTDIV_SCALAR64
     if constexpr (sizeof(T) == 8) {
-      return ScalarDivPerLane(d, dividend, params.divisor);  // truncation semantics
+      return detail::ScalarDivPerLane(d, dividend, params.divisor);  // truncation semantics
     }
   #endif
 
   V q0;
   
-  // Special handling for 8-bit and 16-bit (need wider multiplier)
-  if constexpr (sizeof(T) == 1) {
-    const Repartition<int16_t, D> d16;
-    const auto dividend_16 = PromoteTo(d16, dividend);
-    const auto multiplier_16 = Set(d16, static_cast<int16_t>(params.multiplier));
-    const auto prod = Mul(dividend_16, multiplier_16);
-    const auto high = DemoteTo(d, ShiftRight<8>(prod));  // Arithmetic shift
-    q0 = Add(dividend, high);
-    
-  } else if constexpr (sizeof(T) == 2) {
-    const Repartition<int32_t, D> d32;
-    const auto dividend_32 = PromoteTo(d32, dividend);
-    const auto multiplier_32 = Set(d32, static_cast<int32_t>(params.multiplier));
-    const auto prod = Mul(dividend_32, multiplier_32);
-    const auto high = DemoteTo(d, ShiftRight<16>(prod));  // Arithmetic shift
-    q0 = Add(dividend, high);
-    
-  } else if constexpr (sizeof(T) == 4) {
+if constexpr (sizeof(T) == 1) {
+  if constexpr (D::kPrivateLanes < 2) {
+    q0 = detail::ScalarDivPerLane(d, dividend, params.divisor);
+    } else {
+      using TWide = MulType_t<T>;  // int16_t
+      const Repartition<TWide, D> d_wide;
+      
+      const auto lo_wide = PromoteLowerTo(d_wide, dividend);
+      const auto hi_wide = PromoteUpperTo(d_wide, dividend);
+      
+      const auto mul_wide = Set(d_wide, static_cast<TWide>(params.multiplier));
+      
+      const auto prod_lo = Mul(lo_wide, mul_wide);
+      const auto prod_hi = Mul(hi_wide, mul_wide);
+      
+      #if defined(HWY_HAVE_ORDEREDDEMOTE2TO)
+        const auto high = OrderedDemote2To(d, ShiftRight<8>(prod_lo), ShiftRight<8>(prod_hi));
+      #else
+        const Half<D> d_half;
+        const auto high_lo = DemoteTo(d_half, ShiftRight<8>(prod_lo));
+        const auto high_hi = DemoteTo(d_half, ShiftRight<8>(prod_hi));
+        const auto high = Combine(d, high_hi, high_lo);
+      #endif
+      
+      q0 = Add(dividend, high);
+    }
+  
+} else if constexpr (sizeof(T) == 2) {
+  if constexpr (D::kPrivateLanes < 2) {
+    q0 = detail::ScalarDivPerLane(d, dividend, params.divisor);
+    } else {
+      using TWide = MulType_t<T>;  // int32_t
+      const Repartition<TWide, D> d_wide;
+      
+      const auto lo_wide = PromoteLowerTo(d_wide, dividend);
+      const auto hi_wide = PromoteUpperTo(d_wide, dividend);
+      
+      const auto mul_wide = Set(d_wide, static_cast<TWide>(params.multiplier));
+      
+      const auto prod_lo = Mul(lo_wide, mul_wide);
+      const auto prod_hi = Mul(hi_wide, mul_wide);
+      
+      #if defined(HWY_HAVE_ORDEREDDEMOTE2TO)
+        const auto high = OrderedDemote2To(d, ShiftRight<16>(prod_lo), ShiftRight<16>(prod_hi));
+      #else
+        const Half<D> d_half;
+        const auto high_lo = DemoteTo(d_half, ShiftRight<16>(prod_lo));
+        const auto high_hi = DemoteTo(d_half, ShiftRight<16>(prod_hi));
+        const auto high = Combine(d, high_hi, high_lo);
+      #endif
+      
+      q0 = Add(dividend, high);
+    }
+} else if constexpr (sizeof(T) == 4) {
     const V multiplier = Set(d, params.multiplier);
     const V mulh = MulHigh(dividend, multiplier);
     q0 = Add(dividend, mulh);
