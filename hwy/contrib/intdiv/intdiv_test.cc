@@ -49,9 +49,7 @@ T RandWithin(hwy::RandomState& rng) {
   if constexpr (sizeof(T) <= 4) {
     return static_cast<T>(Random32(&rng));
   } else {
-    const uint64_t hi = Random32(&rng);
-    const uint64_t lo = Random32(&rng);
-    return static_cast<T>((hi << 32) ^ lo);
+    return static_cast<T>(Random64(&rng));
   }
 }
 
@@ -68,13 +66,6 @@ T SafeFloorDivScalar(T a, T b) {
     const bool adjust = (r != T(0)) && ((a < T(0)) != (b < T(0)));
     return static_cast<T>(q - (adjust ? T(1) : T(0)));
   }
-}
-
-template <typename T>
-bool IsPow2(T x) {
-  using U = typename hwy::MakeUnsigned<T>;
-  const U ux = static_cast<U>(x);
-  return ux != U(0) && (ux & (ux - U(1))) == U(0);
 }
 
 struct TestBasicDivision {
@@ -104,7 +95,7 @@ struct TestBasicDivision {
       const auto params = ComputeDivisorParams(divisor);
       
       HWY_ASSERT_EQ(divisor, params.divisor);
-      if (IsPow2(divisor) && !hwy::IsSigned<T>()) {
+      if (detail::IsPow2(divisor) && !hwy::IsSigned<T>()) {
         HWY_ASSERT(params.is_pow2);
       }
       

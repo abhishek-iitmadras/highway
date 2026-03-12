@@ -22,7 +22,6 @@
 
 #undef HWY_TARGET_INCLUDE
 #define HWY_TARGET_INCLUDE "hwy/contrib/intdiv/intdiv-inl.h"
-#include "hwy/foreach_target.h"  // IWYU pragma: keep
 
 #if HWY_ONCE
 
@@ -40,92 +39,86 @@ using DivisorParamsU = HWY_NAMESPACE::DivisorParamsU<T>;
 template <typename T>
 using DivisorParamsS = HWY_NAMESPACE::DivisorParamsS<T>;
 
-template <typename T, HWY_IF_T_SIZE(T, 1), HWY_IF_UNSIGNED(T)>
-HWY_INLINE DivisorParamsU<T> ComputeDivisorParams(T d) {
-  return HWY_NAMESPACE::ComputeDivisorParams<T>(d);
-}
-template <typename T, HWY_IF_T_SIZE(T, 2), HWY_IF_UNSIGNED(T)>
-HWY_INLINE DivisorParamsU<T> ComputeDivisorParams(T d) {
-  return HWY_NAMESPACE::ComputeDivisorParams<T>(d);
-}
-template <typename T, HWY_IF_T_SIZE(T, 4), HWY_IF_UNSIGNED(T)>
-HWY_INLINE DivisorParamsU<T> ComputeDivisorParams(T d) {
-  return HWY_NAMESPACE::ComputeDivisorParams<T>(d);
-}
-template <typename T, HWY_IF_T_SIZE(T, 8), HWY_IF_UNSIGNED(T)>
-HWY_INLINE DivisorParamsU<T> ComputeDivisorParams(T d) {
+template <typename T, HWY_IF_SIGNED(T)>
+HWY_INLINE DivisorParamsS<T> ComputeDivisorParams(T d) {
+  static_assert(sizeof(T) == 1 || sizeof(T) == 2 || sizeof(T) == 4 || sizeof(T) == 8, "ComputeDivisorParams only supports 8/16/32/64-bit integers");
   return HWY_NAMESPACE::ComputeDivisorParams<T>(d);
 }
 
-template <typename T, HWY_IF_T_SIZE(T, 1), HWY_IF_SIGNED(T)>
-HWY_INLINE DivisorParamsS<T> ComputeDivisorParams(T d) {
-  return HWY_NAMESPACE::ComputeDivisorParams<T>(d);
-}
-template <typename T, HWY_IF_T_SIZE(T, 2), HWY_IF_SIGNED(T)>
-HWY_INLINE DivisorParamsS<T> ComputeDivisorParams(T d) {
-  return HWY_NAMESPACE::ComputeDivisorParams<T>(d);
-}
-template <typename T, HWY_IF_T_SIZE(T, 4), HWY_IF_SIGNED(T)>
-HWY_INLINE DivisorParamsS<T> ComputeDivisorParams(T d) {
-  return HWY_NAMESPACE::ComputeDivisorParams<T>(d);
-}
-template <typename T, HWY_IF_T_SIZE(T, 8), HWY_IF_SIGNED(T)>
-HWY_INLINE DivisorParamsS<T> ComputeDivisorParams(T d) {
+template <typename T, HWY_IF_UNSIGNED(T)>
+HWY_INLINE DivisorParamsU<T> ComputeDivisorParams(T d) {
+  static_assert(sizeof(T) == 1 || sizeof(T) == 2 || sizeof(T) == 4 || sizeof(T) == 8, "ComputeDivisorParams only supports 8/16/32/64-bit integers");
   return HWY_NAMESPACE::ComputeDivisorParams<T>(d);
 }
 
-template <class D, class V = VecD<D>, typename T = TFromD_<D>, HWY_IF_UNSIGNED_D(D)>
+template <class D, class V = VecD<D>, typename T = TFromD_<D>>
 HWY_INLINE V IntDiv(D d, V a, const DivisorParamsU<T>& p) {
+  static_assert(!hwy::IsSigned<T>(), "DivisorParamsU requires unsigned lane type");
   return HWY_NAMESPACE::IntDiv(d, a, p);
 }
-template <class D, class V = VecD<D>, typename T = TFromD_<D>, HWY_IF_SIGNED_D(D)>
+
+template <class D, class V = VecD<D>, typename T = TFromD_<D>>
 HWY_INLINE V IntDiv(D d, V a, const DivisorParamsS<T>& p) {
+  static_assert(hwy::IsSigned<T>(), "DivisorParamsS requires signed lane type");
   return HWY_NAMESPACE::IntDiv(d, a, p);
 }
 
-template <class D, class V = VecD<D>, typename T = TFromD_<D>, HWY_IF_UNSIGNED_D(D)>
+template <class D, class V = VecD<D>, typename T = TFromD_<D>>
 HWY_INLINE V IntDivFloor(D d, V a, const DivisorParamsU<T>& p) {
+  static_assert(!hwy::IsSigned<T>(), "DivisorParamsU requires unsigned lane type");
   return HWY_NAMESPACE::IntDivFloor(d, a, p);
 }
-template <class D, class V = VecD<D>, typename T = TFromD_<D>, HWY_IF_SIGNED_D(D)>
+template <class D, class V = VecD<D>, typename T = TFromD_<D>>
 HWY_INLINE V IntDivFloor(D d, V a, const DivisorParamsS<T>& p) {
+  static_assert(hwy::IsSigned<T>(), "DivisorParamsS requires signed lane type");
   return HWY_NAMESPACE::IntDivFloor(d, a, p);
 }
 
 template <class D, class V = VecD<D>, typename T = TFromD_<D>, HWY_IF_UNSIGNED_D(D)>
 HWY_INLINE V DivideByScalar(D d, V a, T div) {
+  static_assert(sizeof(T) == 1 || sizeof(T) == 2 || sizeof(T) == 4 || sizeof(T) == 8, "DivideByScalar only supports 8/16/32/64-bit integers");
   return HWY_NAMESPACE::DivideByScalar(d, a, div);
 }
+
 template <class D, class V = VecD<D>, typename T = TFromD_<D>, HWY_IF_SIGNED_D(D)>
 HWY_INLINE V DivideByScalar(D d, V a, T div) {
+  static_assert(sizeof(T) == 1 || sizeof(T) == 2 || sizeof(T) == 4 || sizeof(T) == 8, "DivideByScalar only supports 8/16/32/64-bit integers");
   return HWY_NAMESPACE::DivideByScalar(d, a, div);
 }
-template <class D, class V = VecD<D>, typename T = TFromD_<D>, HWY_IF_SIGNED_D(D)>
+
+template <class D, class V = VecD<D>, typename T = TFromD_<D>, HWY_IF_UNSIGNED_D(D)>
 HWY_INLINE V FloorDivideByScalar(D d, V a, T div) {
+  static_assert(sizeof(T) == 1 || sizeof(T) == 2 || sizeof(T) == 4 || sizeof(T) == 8, "FloorDivideByScalar only supports 8/16/32/64-bit integers");
   return HWY_NAMESPACE::FloorDivideByScalar(d, a, div);
 }
-template <class D, class V = VecD<D>, typename T = TFromD_<D>, HWY_IF_UNSIGNED_D(D)>
+
+template <class D, class V = VecD<D>, typename T = TFromD_<D>, HWY_IF_SIGNED_D(D)>
 HWY_INLINE V FloorDivideByScalar(D d, V a, T div) {
+  static_assert(sizeof(T) == 1 || sizeof(T) == 2 || sizeof(T) == 4 || sizeof(T) == 8, "FloorDivideByScalar only supports 8/16/32/64-bit integers");
   return HWY_NAMESPACE::FloorDivideByScalar(d, a, div);
 }
 
 template <typename T, HWY_IF_UNSIGNED(T)>
 HWY_INLINE void DivideArrayByScalar(T* HWY_RESTRICT arr, size_t n, T div) {
+  static_assert(sizeof(T) == 1 || sizeof(T) == 2 || sizeof(T) == 4 || sizeof(T) == 8, "DivideArrayByScalar only supports 8/16/32/64-bit integers");
   HWY_NAMESPACE::DivideArrayByScalar(arr, n, div);
 }
 
 template <typename T, HWY_IF_SIGNED(T)>
 HWY_INLINE void DivideArrayByScalar(T* HWY_RESTRICT arr, size_t n, T div) {
+  static_assert(sizeof(T) == 1 || sizeof(T) == 2 || sizeof(T) == 4 || sizeof(T) == 8, "DivideArrayByScalar only supports 8/16/32/64-bit integers");
   HWY_NAMESPACE::DivideArrayByScalar(arr, n, div);
 }
 
 template <typename T, HWY_IF_SIGNED(T)>
 HWY_INLINE void FloorDivideArrayByScalar(T* HWY_RESTRICT arr, size_t n, T div) {
+  static_assert(sizeof(T) == 1 || sizeof(T) == 2 || sizeof(T) == 4 || sizeof(T) == 8, "FloorDivideArrayByScalar only supports 8/16/32/64-bit integers");
   HWY_NAMESPACE::FloorDivideArrayByScalar(arr, n, div);
 }
 
 template <typename T, HWY_IF_UNSIGNED(T)>
 HWY_INLINE void FloorDivideArrayByScalar(T* HWY_RESTRICT arr, size_t n, T div) {
+  static_assert(sizeof(T) == 1 || sizeof(T) == 2 || sizeof(T) == 4 || sizeof(T) == 8, "FloorDivideArrayByScalar only supports 8/16/32/64-bit integers");
   HWY_NAMESPACE::FloorDivideArrayByScalar(arr, n, div);
 }
 

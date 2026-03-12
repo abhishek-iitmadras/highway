@@ -616,7 +616,7 @@ cc_test(
     copts = COPTS + HWY_TEST_COPTS,
     local_defines = ["HWY_IS_TEST"],
     tags = ["hwy_ops_test"],
-    deps = HWY_TEST_DEPS,
+    deps = HWY_TEST_DEPS + [":intdiv"],
 )
 
 # For manually building the tests we define here (:all does not work in --config=msvc)

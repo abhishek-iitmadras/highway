@@ -116,74 +116,54 @@ namespace HWY_NAMESPACE {
 
 // For division, the multiplier needs to be wider than the input type
 // to avoid truncation of the magic constant
+namespace detail {
 template <typename T>
-struct MulType {
+struct MultiplierType {
   using type = T;
 };
 
 template <>
-struct MulType<uint8_t> {
+struct MultiplierType<uint8_t> {
   using type = uint16_t;
 };
 
 template <>
-struct MulType<int8_t> {
+struct MultiplierType<int8_t> {
   using type = int16_t;
 };
 
 template <>
-struct MulType<uint16_t> {
+struct MultiplierType<uint16_t> {
   using type = uint32_t;
 };
 
 template <>
-struct MulType<int16_t> {
+struct MultiplierType<int16_t> {
   using type = int32_t;
 };
 
 template <>
-struct MulType<uint32_t> {
+struct MultiplierType<uint32_t> {
   using type = uint32_t;
 };
 
 template <>
-struct MulType<int32_t> {
+struct MultiplierType<int32_t> {
   using type = int32_t;
 };
 
 template <>
-struct MulType<uint64_t> {
+struct MultiplierType<uint64_t> {
   using type = uint64_t;
 };
 
 template <>
-struct MulType<int64_t> {
+struct MultiplierType<int64_t> {
   using type = int64_t;
 };
 
 template <typename T>
-using MulType_t = typename MulType<T>::type;
-
-template <typename T>
-struct DivisorParamsU {
-  MulType_t<T> multiplier;
-  int shift1;
-  int shift2;
-  bool is_pow2;
-  int pow2_shift;
-  T divisor;
-};
-
-template <typename T>
-struct DivisorParamsS {
-  MulType_t<T> multiplier;
-  int shift;
-  T divisor;
-  bool is_pow2;
-  int pow2_shift;
-};
-
-namespace detail {
+using MultiplierType_T = typename MultiplierType<T>::type;
 
 template <typename T>
 HWY_INLINE bool IsPow2(T x) {
@@ -191,74 +171,19 @@ HWY_INLINE bool IsPow2(T x) {
 }
 
 HWY_INLINE int CountTrailingZeros32(uint32_t x) {
-  if (x == 0) return 32;
-#if HWY_COMPILER_GCC_ACTUAL || HWY_COMPILER_CLANG
-  return __builtin_ctz(x);
-#elif HWY_COMPILER_MSVC
-  unsigned long index;
-  _BitScanForward(&index, x);
-  return static_cast<int>(index);
-#else
-  int count = 0;
-  while ((x & 1) == 0) {
-    x >>= 1;
-    count++;
-  }
-  return count;
-#endif
+  return x == 0 ? 32 : static_cast<int>(Num0BitsBelowLS1Bit_Nonzero32(x));
 }
 
 HWY_INLINE int CountTrailingZeros64(uint64_t x) {
-  if (x == 0) return 64;
-#if HWY_COMPILER_GCC_ACTUAL || HWY_COMPILER_CLANG
-  return __builtin_ctzll(x);
-#elif HWY_COMPILER_MSVC && HWY_ARCH_X86_64
-  unsigned long index;
-  _BitScanForward64(&index, x);
-  return static_cast<int>(index);
-#else
-  uint32_t lo = static_cast<uint32_t>(x);
-  if (lo != 0) {
-    return CountTrailingZeros32(lo);
-  }
-  return 32 + CountTrailingZeros32(static_cast<uint32_t>(x >> 32));
-#endif
+  return x == 0 ? 64 : static_cast<int>(Num0BitsBelowLS1Bit_Nonzero64(x));
 }
 
 HWY_INLINE unsigned LeadingZeroCount32(uint32_t x) {
-  if (x == 0) return 32;
-#if HWY_COMPILER_GCC_ACTUAL || HWY_COMPILER_CLANG
-  return static_cast<unsigned>(__builtin_clz(x));
-#elif HWY_COMPILER_MSVC
-  unsigned long index;
-  _BitScanReverse(&index, x);
-  return 31 - static_cast<unsigned>(index);
-#else
-  unsigned n = 0;
-  if (x <= 0x0000FFFF) { n += 16; x <<= 16; }
-  if (x <= 0x00FFFFFF) { n += 8;  x <<= 8; }
-  if (x <= 0x0FFFFFFF) { n += 4;  x <<= 4; }
-  if (x <= 0x3FFFFFFF) { n += 2;  x <<= 2; }
-  if (x <= 0x7FFFFFFF) { n += 1; }
-  return n;
-#endif
+  return x == 0 ? 32u : static_cast<unsigned>(Num0BitsAboveMS1Bit_Nonzero32(x));
 }
 
 HWY_INLINE unsigned LeadingZeroCount64(uint64_t x) {
-  if (x == 0) return 64;
-#if HWY_COMPILER_GCC_ACTUAL || HWY_COMPILER_CLANG
-  return static_cast<unsigned>(__builtin_clzll(x));
-#elif HWY_COMPILER_MSVC && HWY_ARCH_X86_64
-  unsigned long index;
-  _BitScanReverse64(&index, x);
-  return 63 - static_cast<unsigned>(index);
-#else
-  uint32_t hi = static_cast<uint32_t>(x >> 32);
-  if (hi != 0) {
-    return LeadingZeroCount32(hi);
-  }
-  return 32 + LeadingZeroCount32(static_cast<uint32_t>(x));
-#endif
+  return x == 0 ? 64u : static_cast<unsigned>(Num0BitsAboveMS1Bit_Nonzero64(x));
 }
 
 /**
@@ -279,69 +204,35 @@ HWY_INLINE unsigned LeadingZeroCount64(uint64_t x) {
 HWY_INLINE uint64_t DivideHighBy(uint64_t high, uint64_t divisor) {
   HWY_DASSERT(divisor != 0);
 
-#if defined(__SIZEOF_INT128__)
-  using uint128_t = unsigned __int128;
-  return static_cast<uint64_t>((static_cast<uint128_t>(high) << 64) / divisor);
-
-#elif HWY_COMPILER_MSVC && HWY_ARCH_X86_64 && _MSC_VER >= 1920
-  uint64_t rem;
-  return _udiv128(high, 0, divisor, &rem);
-
+#if (HWY_COMPILER_MSVC >= 1920 || HWY_COMPILER_CLANGCL) && HWY_ARCH_X86_64
+  unsigned __int64 remainder;
+  return _udiv128(high, uint64_t{0}, divisor, &remainder);
+#elif defined(__SIZEOF_INT128__) && !HWY_COMPILER_CLANGCL
+  using u128 = unsigned __int128;
+  const u128 hi128 = static_cast<u128>(high) << 64;
+  return static_cast<uint64_t>(hi128 / static_cast<u128>(divisor));
 #else
-  high %= divisor;
-  if (high == 0) return 0;
-
-  const unsigned ldz = /* detail:: */ LeadingZeroCount64(divisor);
-  const uint64_t d_norm = divisor << ldz;
-  const uint64_t n_norm = high    << ldz;
-
-  const uint32_t dh = static_cast<uint32_t>(d_norm >> 32);
-  const uint32_t dl = static_cast<uint32_t>(d_norm & 0xFFFFFFFFu);
-
-  uint64_t qh  = n_norm / dh;
-  uint64_t rem = n_norm - qh * dh;
-
-  const uint64_t base32 = 1ull << 32;
-  while (qh >= base32 || qh * dl > (rem << 32)) {
-    --qh;
-    rem += dh;
-    if (rem >= base32) break;
-  }
-
-  const uint64_t dividend_pairs = (n_norm << 32) - d_norm * qh;
-  const uint32_t ql = static_cast<uint32_t>(dividend_pairs / dh);
-
-  return (qh << 32) | ql;
+  HWY_ABORT("intdiv 64-bit support requires __int128 or MSVC/clang-cl _udiv128");
 #endif
 }
 
+// Shifts all lanes of 'v' right by runtime value sh
+// Dispatches to ShiftRightSame on targets that support it for all lane sizes; 
+// otherwise falls back to decomposed compile-time shifts.
 template <class D, class V = Vec<D>>
 HWY_INLINE V ShiftRightUniform(D d, V v, int sh) {
   using T = TFromD<D>;
-  const int bits = int(sizeof(T) * 8);
+  const int kBits = int(sizeof(T) * 8);
   if (sh <= 0) return v;
-  if (sh >= bits) sh = bits - 1;
+  if (sh >= kBits) sh = kBits - 1;
   (void)d;
 
-#if HWY_TARGET == HWY_NEON
+#if HWY_TARGET_IS_NEON || HWY_TARGET == HWY_AVX2 || HWY_TARGET <= HWY_AVX3
   return ShiftRightSame(v, sh);
-#elif HWY_TARGET == HWY_AVX3
-  return ShiftRightSame(v, sh);
-#elif HWY_TARGET == HWY_AVX2
-  if constexpr (sizeof(T) == 4) {
-    return ShiftRightSame(v, sh);
-  }
 #endif
-
-  if constexpr (sizeof(T) * 8 > 32) {
-    if (sh & 32) v = ShiftRight<32>(v);
-  }
-  if constexpr (sizeof(T) * 8 > 16) {
-    if (sh & 16) v = ShiftRight<16>(v);
-  }
-  if constexpr (sizeof(T) * 8 > 8) {
-    if (sh & 8)  v = ShiftRight<8>(v);
-  }
+  if constexpr (kBits > 32) { if (sh & 32) v = ShiftRight<32>(v); }
+  if constexpr (kBits > 16) { if (sh & 16) v = ShiftRight<16>(v); }
+  if constexpr (kBits > 8) { if (sh & 8)  v = ShiftRight<8>(v); }
   if (sh & 4)  v = ShiftRight<4>(v);
   if (sh & 2)  v = ShiftRight<2>(v);
   if (sh & 1)  v = ShiftRight<1>(v);
@@ -362,6 +253,24 @@ HWY_INLINE V ScalarDivPerLane(D d, V dividend, T divisor) {
 
 
 }  // namespace detail
+template <typename T>
+struct DivisorParamsU {
+  detail::MultiplierType_T<T> multiplier;
+  int shift1;
+  int shift2;
+  bool is_pow2;
+  int pow2_shift;
+  T divisor;
+};
+
+template <typename T>
+struct DivisorParamsS {
+  detail::MultiplierType_T<T> multiplier;
+  int shift;
+  T divisor;
+  bool is_pow2;
+  int pow2_shift;
+};
 
 
 template <typename T, HWY_IF_T_SIZE(T, 1), HWY_IF_UNSIGNED(T)>
@@ -701,7 +610,7 @@ if constexpr (sizeof(T) <= 2) {
     if constexpr (D::kPrivateLanes < 2) {
       return detail::ScalarDivPerLane(d, dividend, params.divisor);
     } else {
-      using TWide = MulType_t<T>;
+      using TWide = detail::MultiplierType_T<T>;
       const Repartition<TWide, D> d_wide;
       
       const auto lo_wide = PromoteLowerTo(d_wide, dividend);
@@ -784,7 +693,7 @@ if constexpr (sizeof(T) <= 2) {
     if constexpr (D::kPrivateLanes < 2) {
       return detail::ScalarDivPerLane(d, dividend, params.divisor);
     } else {
-      using TWide = MulType_t<T>;
+      using TWide = detail::MultiplierType_T<T>;
       const Repartition<TWide, D> d_wide;
       
       const auto lo_wide = PromoteLowerTo(d_wide, dividend);
