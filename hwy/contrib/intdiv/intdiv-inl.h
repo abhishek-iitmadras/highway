@@ -43,7 +43,8 @@
  *     Performs the actual division using the precomputed parameters.
  *
  ** NOTES:
- *  - For 64-bit division on Aarch64 and IBM/Power, we fall back to scalar division
+ *  - For 64-bit division on platforms without 128-bit division support (including
+ *    Aarch64, IBM/Power, and clang-cl on Windows), we fall back to scalar division
  *    since emulating multiply-high is expensive and both architectures have very
  *    fast hardware dividers.
  *  - Power-of-two divisors are optimized to simple shifts.
@@ -94,7 +95,7 @@
 #include "hwy/highway.h"
 
 #ifndef HWY_INTDIV_SCALAR64
-  #if (HWY_TARGET == HWY_NEON) || (HWY_TARGET == HWY_PPC8) || (HWY_TARGET == HWY_VSX)
+  #if !HWY_HAVE_DIV128 || HWY_TARGET_IS_NEON || HWY_TARGET == HWY_PPC8 || HWY_TARGET == HWY_VSX
     #define HWY_INTDIV_SCALAR64 1
   #else
     #define HWY_INTDIV_SCALAR64 0
@@ -105,17 +106,11 @@ HWY_BEFORE_NAMESPACE();
 namespace hwy {
 namespace HWY_NAMESPACE {
 
-// Integer division by invariant integers using multiplication.
-// Based on T. Granlund and P. L. Montgomery, "Division by invariant integers
-// using multiplication" (PLDI 1994).
-// https://gmplib.org/~tege/divcnst-pldi94.pdf
-
-// ============================================================================
-// Type traits for wider multiplier types
-// ============================================================================
-
-// For division, the multiplier needs to be wider than the input type
-// to avoid truncation of the magic constant
+/** 
+ * Type used for the precomputed multiplier constant.
+ * For 8/16-bit lanes: next wider type (widening multiply path).
+ * For 32/64-bit lanes: same type (MulHigh path).
+ */
 namespace detail {
 template <typename T>
 struct MultiplierType {
@@ -190,35 +185,30 @@ HWY_INLINE unsigned LeadingZeroCount64(uint64_t x) {
  * Divides a 128-bit unsigned integer (high:0) by a 64-bit divisor.
  * Computes: (high << 64) / divisor
  *
- * This function is needed to calculate the multiplier for 64-bit integer
- * division in the Granlund-Montgomery algorithm.
- *
- * Minified version based on Donald Knuth's Algorithm D (Division of nonnegative
- * integers), and generic implementation in Hacker's Delight.
- *
- * See https://skanthak.homepage.t-online.de/division.html
- * with respect to the license of the Hacker's Delight book
- * (https://web.archive.org/web/20190408122508/http://www.hackersdelight.org/permissions.htm)
+ * Only defined when 128-bit division is available (HWY_HAVE_DIV128).
+ * When HWY_INTDIV_SCALAR64 is set, this function is not needed because
+ * 64-bit division uses the scalar per-lane fallback.
  */
-
+#if HWY_HAVE_DIV128
 HWY_INLINE uint64_t DivideHighBy(uint64_t high, uint64_t divisor) {
   HWY_DASSERT(divisor != 0);
 
-#if (HWY_COMPILER_MSVC >= 1920 || HWY_COMPILER_CLANGCL) && HWY_ARCH_X86_64
+#if HWY_COMPILER_MSVC >= 1920 && HWY_ARCH_X86_64
   unsigned __int64 remainder;
   return _udiv128(high, uint64_t{0}, divisor, &remainder);
-#elif defined(__SIZEOF_INT128__) && !HWY_COMPILER_CLANGCL
+#else
   using u128 = unsigned __int128;
   const u128 hi128 = static_cast<u128>(high) << 64;
   return static_cast<uint64_t>(hi128 / static_cast<u128>(divisor));
-#else
-  HWY_ABORT("intdiv 64-bit support requires __int128 or MSVC/clang-cl _udiv128");
 #endif
 }
+#endif  // HWY_HAVE_DIV128
 
-// Shifts all lanes of 'v' right by runtime value sh
-// Dispatches to ShiftRightSame on targets that support it for all lane sizes; 
-// otherwise falls back to decomposed compile-time shifts.
+/** 
+ * Shifts all lanes of 'v' right by runtime value sh
+ * Dispatches to ShiftRightSame on targets that support it for all lane sizes; 
+ * otherwise falls back to decomposed compile-time shifts.
+ */
 template <class D, class V = Vec<D>>
 HWY_INLINE V ShiftRightUniform(D d, V v, int sh) {
   using T = TFromD<D>;
@@ -403,6 +393,11 @@ HWY_INLINE DivisorParamsU<T> ComputeDivisorParams(T divisor) {
     return params;
   }
   
+#if HWY_INTDIV_SCALAR64
+  params.multiplier = 1;
+  params.shift1 = 0;
+  params.shift2 = 0;
+#else
   unsigned l = 64 - detail::LeadingZeroCount64(divisor - 1);
   uint64_t two_l_minus_d = (l < 64) ? ((1ULL << l) - divisor) : (0 - divisor);
   uint64_t m = detail::DivideHighBy(two_l_minus_d, divisor) + 1;
@@ -410,6 +405,7 @@ HWY_INLINE DivisorParamsU<T> ComputeDivisorParams(T divisor) {
   params.multiplier = m;
   params.shift1 = 1;
   params.shift2 = static_cast<int>(l) - 1;
+#endif
   
   return params;
 }
@@ -580,11 +576,16 @@ HWY_INLINE DivisorParamsS<T> ComputeDivisorParams(T divisor) {
     params.shift = 62;
     return params;
   }
-  
+
+#if HWY_INTDIV_SCALAR64
+  params.multiplier = 1;
+  params.shift = 0;
+#else
   unsigned sh = 63 - detail::LeadingZeroCount64(abs_d - 1);
   uint64_t m = detail::DivideHighBy(1ULL << sh, abs_d) + 1;
   params.multiplier = static_cast<T>(m);
   params.shift = static_cast<int>(sh);
+#endif
   
   return params;
 }
@@ -596,15 +597,15 @@ HWY_INLINE V IntDiv(D d, V dividend, const DivisorParamsU<T>& params) {
     return detail::ShiftRightUniform(d, dividend, params.pow2_shift);
   }
   
-  if (params.shift1 == 0 && params.shift2 == 0 && params.multiplier == 1) {
-    return dividend;
-  }
-  
   #if HWY_INTDIV_SCALAR64
     if constexpr (sizeof(T) == 8) {
       return detail::ScalarDivPerLane(d, dividend, params.divisor);
     }
   #endif
+
+  if (params.shift1 == 0 && params.shift2 == 0 && params.multiplier == 1) {
+    return dividend;
+  }
 
 if constexpr (sizeof(T) <= 2) {
     if constexpr (D::kPrivateLanes < 2) {
@@ -673,19 +674,19 @@ HWY_INLINE V IntDiv(D d, V dividend, const DivisorParamsS<T>& params) {
     
     return q;
   }
-  
-  if (params.shift == 0 && params.multiplier == 1) {
-    if (neg_divisor) {
-      return Neg(dividend);
-    }
-    return dividend;
-  }
 
   #if HWY_INTDIV_SCALAR64
     if constexpr (sizeof(T) == 8) {
       return detail::ScalarDivPerLane(d, dividend, params.divisor);
     }
   #endif
+
+  if (params.shift == 0 && params.multiplier == 1) {
+    if (neg_divisor) {
+      return Neg(dividend);
+    }
+    return dividend;
+  }
 
   V q0;
   
