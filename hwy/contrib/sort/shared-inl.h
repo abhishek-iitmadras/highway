@@ -40,7 +40,7 @@ static HWY_INLINE uint64_t RandomBits(uint64_t* HWY_RESTRICT state) {
 
 // Internal constants - these are to avoid magic numbers/literals and cannot be
 // changed without also changing the associated code.
-// This is just the test of ci
+// New test
 struct SortConstants {
   // SortingNetwork reshapes its input into a matrix. This is the maximum number
   // of *lanes* per vector. Must be at least 8 because SortSamples assumes the
