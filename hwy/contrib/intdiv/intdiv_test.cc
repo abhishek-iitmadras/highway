@@ -16,15 +16,9 @@
 // limitations under the License.
 #include <stddef.h>
 #include <stdint.h>
-#include <string.h>
 
 #include <algorithm>
-#include <chrono>
-#include <cmath>
-#include <cstdio>
-#include <iostream>
 #include <limits>
-#include <random>
 #include <vector>
 
 #include "hwy/aligned_allocator.h"
@@ -95,10 +89,11 @@ struct TestBasicDivision {
       const auto params = ComputeDivisorParams(divisor);
       
       HWY_ASSERT_EQ(divisor, params.divisor);
-      if (detail::IsPow2(divisor) && !hwy::IsSigned<T>()) {
-        HWY_ASSERT(params.is_pow2);
+      if constexpr (!hwy::IsSigned<T>()) {
+        if (detail::IsPow2(divisor)) {
+          HWY_ASSERT(params.is_pow2);
+        }
       }
-      
       for (size_t i = 0; i < count; ++i) {
         a[i] = static_cast<T>((static_cast<uint32_t>(i) * 123u) & 255u);
         expected[i] = static_cast<T>(a[i] / divisor);
@@ -609,24 +604,26 @@ struct TestArrayOperations {
 };
 
 #if HWY_HAVE_DIV128
-struct TestDivideHighBy {
+struct TestDiv128HighBy {
   HWY_INLINE void operator()() const {
-    using detail::DivideHighBy;
-    
+    using detail::Div128HighBy;
+
     {
-      const uint64_t out = DivideHighBy(1ull, 3ull);
+      const uint64_t out = Div128HighBy(1ull, 3ull);
       HWY_ASSERT_EQ(0x5555555555555555ull, out);
     }
-    
+
     {
-      const uint64_t high = 1ull << 63;
+      // Must keep high < divisor. Otherwise the 128/64 quotient does not fit
+      // in uint64_t, and MSVC _udiv128 / x86 div can trap.
+      const uint64_t high = 1ull << 62;
       const uint64_t div = 1ull << 63;
-      const uint64_t out = DivideHighBy(high, div);
-      HWY_ASSERT_EQ(0ull, out);
+      const uint64_t out = Div128HighBy(high, div);
+      HWY_ASSERT_EQ(1ull << 63, out);
     }
-    
+
     {
-      const uint64_t out = DivideHighBy(1ull, ~0ull);
+      const uint64_t out = Div128HighBy(1ull, ~0ull);
       HWY_ASSERT_EQ(1ull, out);
     }
   }
@@ -693,9 +690,9 @@ void TestAllArrayOperations() {
   ForIntegerTypes(ForPartialVectors<ForeachCountAndMisalign<TestArrayOperations>>());
 }
 
-void TestAllDivideHighBy() {
-#if HWY_HAVE_DIV128  
-  TestDivideHighBy{}();
+void TestAllDiv128HighBy() {
+#if HWY_HAVE_DIV128
+  TestDiv128HighBy{}();
 #endif  // HWY_HAVE_DIV128
 }
 
@@ -719,7 +716,7 @@ HWY_EXPORT_AND_TEST_P(IntDivTest, TestAllRandomDivision);
 HWY_EXPORT_AND_TEST_P(IntDivTest, TestAllLargeDivisors);
 HWY_EXPORT_AND_TEST_P(IntDivTest, TestAllConvenienceAPI);
 HWY_EXPORT_AND_TEST_P(IntDivTest, TestAllArrayOperations);
-HWY_EXPORT_AND_TEST_P(IntDivTest, TestAllDivideHighBy);
+HWY_EXPORT_AND_TEST_P(IntDivTest, TestAllDiv128HighBy);
 HWY_AFTER_TEST();
 
 }  // namespace

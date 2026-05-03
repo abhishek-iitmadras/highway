@@ -3049,10 +3049,11 @@ class Divisor64 {
   // Returns n % divisor_.
   uint64_t Remainder(uint64_t n) const { return n - (Divide(n) * divisor_); }
 
- private:
-  uint64_t divisor_;
+//  private:
+//   uint64_t divisor_;
 
   static uint64_t Div128(uint64_t hi, uint64_t div) {
+    HWY_DASSERT(div != 0);
 #if HWY_COMPILER_MSVC >= 1920 && HWY_ARCH_X86_64
     unsigned __int64 remainder;  // unused
     return _udiv128(hi, uint64_t{0}, div, &remainder);
@@ -3063,7 +3064,9 @@ class Divisor64 {
 #endif
   }
 
-  static uint64_t MulHigh(uint64_t a, uint64_t b) {
+  private:
+    uint64_t divisor_;
+    static uint64_t MulHigh(uint64_t a, uint64_t b) {
 #if HWY_COMPILER_MSVC >= 1920 && HWY_ARCH_X86_64
     return __umulh(a, b);
 #else
@@ -3074,9 +3077,9 @@ class Divisor64 {
 #endif
   }
 
-  uint64_t mul_ = 1;
-  uint64_t shift1_ = 0;
-  uint64_t shift2_ = 0;
+    uint64_t mul_ = 1;
+    uint64_t shift1_ = 0;
+    uint64_t shift2_ = 0;
 };
 #else
 // No Div128 available, use built-in 64-bit division on each call.

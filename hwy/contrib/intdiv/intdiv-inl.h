@@ -139,31 +139,20 @@ HWY_INLINE constexpr unsigned LeadingZeroCount64(uint64_t x) {
   return x == 0 ? 64u : static_cast<unsigned>(Num0BitsAboveMS1Bit_Nonzero64(x));
 }
 
-#if HWY_HAVE_DIV128
-HWY_INLINE uint64_t DivideHighBy(uint64_t high, uint64_t divisor) {
+HWY_INLINE uint64_t Div128HighBy(uint64_t high, uint64_t divisor) {
+  static_assert(HWY_HAVE_DIV128,
+                "Div128HighBy requires HWY_HAVE_DIV128; "
+                "64-bit callers must use HWY_INTDIV_SCALAR64 fallback "
+                "when HWY_HAVE_DIV128 is unavailable.");
   HWY_DASSERT(divisor != 0);
-#if HWY_COMPILER_MSVC >= 1920 && HWY_ARCH_X86_64
-  unsigned __int64 remainder;
-  return _udiv128(high, uint64_t{0}, divisor, &remainder);
-#else
-  using u128 = unsigned __int128;
-  const u128 hi128 = static_cast<u128>(high) << 64;
-  return static_cast<uint64_t>(hi128 / static_cast<u128>(divisor));
-#endif
+  return ::hwy::Divisor64::Div128(high, divisor);
 }
-#endif  // HWY_HAVE_DIV128
 
 template <class D, class V = Vec<D>>
-HWY_INLINE V ShiftRightUniform(D d, V v, int sh) {
+HWY_INLINE V ShiftRightUniform(D /*d*/, V v, int sh) {
   HWY_DASSERT(sh >= 0);
   HWY_DASSERT(sh < static_cast<int>(sizeof(TFromD<D>) * 8));
-#if HWY_TARGET_IS_NEON || HWY_TARGET == HWY_AVX2 || HWY_TARGET <= HWY_AVX3
-  (void)d;
   return ShiftRightSame(v, sh);
-#else
-  using T = TFromD<D>;
-  return Shr(v, Set(d, static_cast<T>(sh)));
-#endif
 }
 
 template <class D, class V = Vec<D>, typename T = TFromD<D>>
@@ -310,7 +299,7 @@ HWY_INLINE
 #else
   const unsigned l = 64u - detail::LeadingZeroCount64(divisor - 1u);
   const uint64_t two_l_minus_d = (l < 64) ? ((1ULL << l) - divisor) : (0 - divisor);
-  const uint64_t m = detail::DivideHighBy(two_l_minus_d, divisor) + 1u;
+  const uint64_t m = detail::Div128HighBy(two_l_minus_d, divisor) + 1u;
   params.multiplier = m;
   params.shift2 = static_cast<int>(l) - 1;
 #endif
@@ -448,7 +437,7 @@ HWY_INLINE
   params.shift = 0;
 #else
   const unsigned sh = 63u - detail::LeadingZeroCount64(abs_d - 1u);
-  const uint64_t m = detail::DivideHighBy(1ULL << sh, abs_d) + 1u;
+  const uint64_t m = detail::Div128HighBy(1ULL << sh, abs_d) + 1u;
   params.multiplier = static_cast<T>(m);
   params.shift = static_cast<int>(sh);
 #endif
