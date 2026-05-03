@@ -139,14 +139,12 @@ HWY_INLINE constexpr unsigned LeadingZeroCount64(uint64_t x) {
   return x == 0 ? 64u : static_cast<unsigned>(Num0BitsAboveMS1Bit_Nonzero64(x));
 }
 
+#if HWY_HAVE_DIV128
 HWY_INLINE uint64_t Div128HighBy(uint64_t high, uint64_t divisor) {
-  static_assert(HWY_HAVE_DIV128,
-                "Div128HighBy requires HWY_HAVE_DIV128; "
-                "64-bit callers must use HWY_INTDIV_SCALAR64 fallback "
-                "when HWY_HAVE_DIV128 is unavailable.");
   HWY_DASSERT(divisor != 0);
   return ::hwy::Divisor64::Div128(high, divisor);
 }
+#endif  // HWY_HAVE_DIV128
 
 template <class D, class V = Vec<D>>
 HWY_INLINE V ShiftRightUniform(D /*d*/, V v, int sh) {
